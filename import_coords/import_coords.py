@@ -4,11 +4,12 @@ import logging
 from csv import DictReader
 from datetime import datetime
 import psycopg2
-from psycopg2.extras import LoggingConnection
+# from psycopg2.extras import LoggingConnection
 from psycopg2 import OperationalError
 from contextlib import closing
 
 # file_csv = config('POSTGRES_DUMP_CSV')
+
 
 class PostgreDB(object):
     """Класс для записи данных из дампа csv файла в PostgreDB
@@ -26,24 +27,25 @@ class PostgreDB(object):
     _fld335 - id_car
     """
     def __init__(self):
-        self._host       = os.environ.get('POSTGRES_HOST')
-        self._port       = os.environ.get('POSTGRES_PORT')
-        self._user       = os.environ.get('POSTGRES_USER')
-        self._password   = os.environ.get('POSTGRES_PASSWORD')
-        self._dbname     = os.environ.get('POSTGRES_DBNAME')
-        self._dbtable    = os.environ.get('POSTGRES_DBTABLE')
-        self._timezone   = os.environ.get('POSTGRES_TIMEZONE')
-        self._idregion  = os.environ.get('POSTGRES_IDREGION')
-        self._dbconf     = dict()
-        self._csv        = os.environ.get('POSTGRES_DUMP_CSV')
-        if self._host and self._port and self._user and self._password and self._dbname:
+        self._host = os.environ.get('POSTGRES_HOST')
+        self._port = os.environ.get('POSTGRES_PORT')
+        self._user = os.environ.get('POSTGRES_USER')
+        self._password = os.environ.get('POSTGRES_PASSWORD')
+        self._dbname = os.environ.get('POSTGRES_DBNAME')
+        # self._dbtable = os.environ.get('POSTGRES_DBTABLE')
+        self._timezone = os.environ.get('POSTGRES_TIMEZONE')
+        self._idregion = os.environ.get('POSTGRES_IDREGION')
+        self._dbconf = dict()
+        self._csv = os.environ.get('POSTGRES_DUMP_CSV')
+        if self._host and self._port and \
+           self._user and self._password and self._dbname:
             self._dbconf = {"user":     self._user,
                             "password": self._password,
                             "host":     self._host,
                             "port":     self._port,
                             "database": self._dbname,
                             }
-        self.log         = logging
+        self.log = logging
         self.log.basicConfig(level=logging.DEBUG,
                              format='%(asctime)s:%(levelname)s:%(message)s',
                              datefmt='%Y-%m-%d %H:%M:%S')
@@ -52,14 +54,16 @@ class PostgreDB(object):
         """Метод для преобразования данных для отправки в Postgre"""
         time = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
         time_str = f'{data.pop("_period")}{self._timezone}'
-        time_unix = datetime.strptime(time_str, f"%Y-%m-%d %H:%M:%S{self._timezone}").timestamp()
+        time_unix = datetime.strptime(
+            time_str, f"%Y-%m-%d %H:%M:%S{self._timezone}").timestamp()
         if self._timezone.isalpha():
             timezone = 0
-        else: 
+        else:
             timezone = 3600 * int(self._timezone)
         time_unix -= timezone
         time_unix = round(time_unix)
-        time_str = datetime.fromtimestamp(time_unix).strftime("%Y-%m-%d %H:%M:%SZ")
+        time_str = datetime.fromtimestamp(time_unix).\
+            strftime("%Y-%m-%d %H:%M:%SZ")
         car_numder = data.pop('_fld325')
         longitude = data.pop('_fld326')
         latitude = data.pop('_fld327')
@@ -85,9 +89,39 @@ class PostgreDB(object):
         id_car = data.pop('_fld335')
         altitude = 0
         id_region = self._idregion
-        return [time, id_car, latitude, longitude, altitude, direction, speed, \
-                odometer, id_region, car_numder, time_str, time_unix, valid, \
+        return [time, id_car, latitude, longitude, altitude, direction, speed,
+                odometer, id_region, car_numder, time_str, time_unix, valid,
                 actual, moving, alarmbutton]
+
+    def writeToDb(self, cursor, data: list):
+        """Метод для записи данных в базу данных"""
+        cursor.execute(
+            """INSERT INTO raw_data
+            (time, id_car, latitude, longitude, altitude, direction, speed,
+            odometer, id_region, car_numder, time_str, time_unix, valid,
+            actual, moving, alarmbutton)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", data)
+
+    def checkRowData(self, cursor, row: dict):
+        """Метод для проверки наличия данных в базе данных"""
+        time_str = f'{row.get("_period")}{self._timezone}'
+        id_car = row.get('_fld335')
+        self.log.info(f'[DUMP IMPORT] ReadRowCSV <= {time_str} | {id_car}')
+        cursor.execute(
+            'SELECT COUNT(*) FROM raw_data WHERE time_str=%s and id_car=%s',
+            (time_str, id_car,))
+        # если данных нет, записываем их
+        if not cursor.fetchone()[0]:
+            data = self.convertDataForPostgre(data=row)
+            self.writeToDb(cursor=cursor, data=data)
+            self.log.info(f'[DUMP IMPORT] WriteRowData => {data}')
+
+    def readCSVfile(self, cursor):
+        """Метод для чтения данных из CSV файла дампа базы данных"""
+        with open(self._csv, 'r') as read_obj:
+            csv_dict_reader = DictReader(read_obj)
+            for row in csv_dict_reader:
+                self.checkRowData(cursor=cursor, row=row)
 
     def insertData(self):
         """Метод для вставки данных в Postgre"""
@@ -96,32 +130,19 @@ class PostgreDB(object):
             with closing(connect) as conn:
                 with conn.cursor() as cursor:
                     conn.autocommit = True
-                    with open(self._csv, 'r') as read_obj:
-                        csv_dict_reader = DictReader(read_obj)
-                        for row in csv_dict_reader:
-                            time_str = f'{row.get("_period")}{self._timezone}'
-                            id_car = row.get('_fld335')
-                            self.log.info(f'[DUMP IMPORT] ReadRowCSV <= {time_str} | {id_car}')
-                            cursor.execute('SELECT COUNT(*) FROM %s WHERE time_str = %s and id_car = %s', (self._dbtable, time_str, id_car,))
-                            if not cursor.fetchone()[0]:
-                                data = self.convertDataForPostgre(data=row)
-                                self.log.info(f'[DUMP IMPORT] RowData => {data}')
-                                cursor.execute("""INSERT INTO raw_data
-                                                (time, id_car, latitude, longitude, altitude, direction, speed,
-                                                odometer, id_region, car_numder, time_str, time_unix, valid,
-                                                actual, moving, alarmbutton)
-                                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", data)
+                    self.readCSVfile(cursor=cursor)
         except (OperationalError, TypeError, KeyboardInterrupt) as err:
             self.log.error(f'[DUMP IMPORT] insertData => {err}')
 
 
-db = PostgreDB()
+def run_import():
+    """Метод для запуска процесса импротра данных из CSV файла в базу данных"""
+    db = PostgreDB()
 
-try:
-    logging.info("[DUMP IMPORT] Start import CSV Dump")
-    db.insertData()
-except (KeyboardInterrupt, OSError) as err:
-    logging.exception(f'[DUMP IMPORT] Unexpected exception {err}')
-finally:
-    logging.info("[DUMP IMPORT] Done import CSV Dump")
-    
+    try:
+        logging.info("[DUMP IMPORT] Start import CSV Dump")
+        db.insertData()
+    except (KeyboardInterrupt, OSError) as err:
+        logging.exception(f'[DUMP IMPORT] Unexpected exception {err}')
+    finally:
+        logging.info("[DUMP IMPORT] Done import CSV Dump")
