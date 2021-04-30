@@ -3,4 +3,5 @@
 archive
 venv
 __pycache__
+import_coords.egg-info
 release
