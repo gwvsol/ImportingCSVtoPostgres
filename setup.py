@@ -30,7 +30,7 @@ setup(
     license=module.__license__,
     description=module.__doc__,
     long_description=open('README.md').read(),
-    # url='https://github.com/gwvsol/RethinkDB-context-manager',
+    url='https://github.com/gwvsol/ImportingCSVtoPostgres',
     platforms='all',
     classifiers=[
         'Intended Audience :: Developers',
