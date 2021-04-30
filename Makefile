@@ -22,29 +22,31 @@ SOURCE=import_coords
 .DEFAULT: help
 
 help:
-	@echo "make install	- Build a release"
-	@echo "make run	- Build a release"
-	@echo "make clean	- Build a release"
-	@echo "make release	- Build a release"
+	@echo "make install	- Installing dependencies"
+	@echo "make install-dev - Installing dependencies for code validation"
+	@echo "make uninstall	- Removal"
+	@echo "make run	- Run the app"
+	@echo "make check	- Checking the code"
+	@echo "make clean	- Cleaning up garbage"
+	@echo "make release	- Creating a release"
 
 #===============================================
 
 #===============================================
-# Установка зависимостей для работы приложения
+# Установка зависимостей
 install:
 	[ -d $(VENV_NAME) ] || python3 -m $(VENV_NAME) $(VENV_NAME)
 	${PIP} install pip wheel -U
 	${PIP} install -r ${DEPENDENCES}
-#	${PIP} install -r ${DEPENDENCESDEV}
 
-# Установка зависимостей для проверки работы приложения
+# Установка зависимостей для проверки кода
 install-dev:
 	[ -d $(VENV_NAME) ] || python3 -m $(VENV_NAME) $(VENV_NAME)
 	${PIP} install pip wheel -U
 	${PIP} install -r ${DEPENDENCESDEV}
 
 #===============================================
-# Активация виртуального окружения для работы приложений
+# Активация виртуального окружения
 venv: ${VENV_NAME}/bin/activate
 $(VENV_NAME)/bin/activate: ${SETUP}
 	[ -d $(VENV_NAME) ] || python3 -m $(VENV_NAME) $(VENV_NAME)
@@ -69,12 +71,13 @@ clean:
 	find . -name '__pycache__' -exec rm -fr {} +
 	rm -fr ${RELEASE}
 
-# Удаление виртуального окружения для работы приложений
+# Удаление
 uninstall:
 	make clean
 	rm -fr venv
 
-# Проверка корректности написания кода Python
+#===============================================
+# Проверка кода
 check: ${PYCODESTYLE} ${PYFLAKES} ${SOURCE}
 	@echo "==================================="
 	${PYCODESTYLE} ${SOURCE} ${SETUP}
@@ -82,7 +85,7 @@ check: ${PYCODESTYLE} ${PYFLAKES} ${SOURCE}
 	@echo "=============== OK! ==============="
 
 #===============================================
-# Создание релиза приложения
+# Создание релиза
 release: clean ${SOURCE}
 	mkdir ${RELEASE}
 	zip -r ${RELEASE}/${SOURCE}-$(shell date '+%Y-%m-%d').zip \
