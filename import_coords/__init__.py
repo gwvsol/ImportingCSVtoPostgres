@@ -1,5 +1,5 @@
 """
-Модуль для импорта CSV файла в Postgres
+Импорт CSV дампа базы данных в Postgres
 """
 
 __author__ = 'Fedorov Mikhail'
