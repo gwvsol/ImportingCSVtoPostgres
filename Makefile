@@ -7,9 +7,13 @@ VENV_ACTIVATE=. ${VENV_NAME}/bin/activate
 PYTHON=${VENV_NAME}/bin/python3
 PIP=${VENV_NAME}/bin/pip3
 PYCODESTYLE=${VENV_NAME}/bin/pycodestyle
+PYFLAKES=${VENV_NAME}/bin/pyflakes
 PWD=$(shell pwd)
 DEPENDENCES=requirements.txt
-#DEPENDENCESDEV=requirements-dev.txt
+DEPENDENCESDEV=requirements-dev.txt
+SETUP=setup.py
+MAKEFILE=Makefile
+README=README.md
 include ${ENV}
 RELEASE=release
 SOURCE=import_coords
@@ -32,6 +36,12 @@ install:
 	${PIP} install pip wheel -U
 	${PIP} install -r ${DEPENDENCES}
 #	${PIP} install -r ${DEPENDENCESDEV}
+
+# Установка зависимостей для проверки работы приложения
+install-dev:
+	[ -d $(VENV_NAME) ] || python3 -m $(VENV_NAME) $(VENV_NAME)
+	${PIP} install pip wheel -U
+	${PIP} install -r ${DEPENDENCESDEV}
 
 #===============================================
 # Активация виртуального окружения для работы приложений
@@ -59,10 +69,22 @@ clean:
 	find . -name '__pycache__' -exec rm -fr {} +
 	rm -fr ${RELEASE}
 
+# Удаление виртуального окружения для работы приложений
+uninstall:
+	make clean
+	rm -fr venv
+
+# Проверка корректности написания кода Python
+check: ${PYCODESTYLE} ${PYFLAKES} ${SOURCE}
+	@echo "==================================="
+	${PYCODESTYLE} ${SOURCE} ${SETUP}
+	${PYFLAKES} ${SOURCE} ${SETUP}
+	@echo "=============== OK! ==============="
+
 #===============================================
 # Создание релиза приложения
 release: clean ${SOURCE}
 	mkdir ${RELEASE}
 	zip -r ${RELEASE}/${SOURCE}-$(shell date '+%Y-%m-%d').zip \
-	${SOURCE} ${ENV} Makefile *.md *.in *.txt *.py
+	${SOURCE} ${ENV} ${MAKEFILE} ${README} *.txt ${SETUP}
 #===============================================
