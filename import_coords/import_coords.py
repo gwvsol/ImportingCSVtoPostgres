@@ -117,8 +117,8 @@ class PostgreDB(object):
 
     def checkRowData(self, cursor, row: dict):
         """Метод для проверки наличия данных в базе данных"""
-        time_str = f'{row.get("_period")}{self._timezone}'
-        id_car = row.get('_fld335')
+        time_str = f'{row.get(self.time_str)}{self._timezone}'
+        id_car = row.get(self.id_car)
         self.log.info(f'[DUMP IMPORT] ReadRowCSV <= {time_str} | {id_car}')
         cursor.execute(
             'SELECT COUNT(*) FROM raw_data WHERE time_str=%s and id_car=%s',
@@ -131,10 +131,13 @@ class PostgreDB(object):
 
     def readCSVfile(self, cursor):
         """Метод для чтения данных из CSV файла дампа базы данных"""
-        with open(self._csv, 'r') as read_obj:
-            csv_dict_reader = DictReader(read_obj)
-            for row in csv_dict_reader:
-                self.checkRowData(cursor=cursor, row=row)
+        try:
+            with open(self._csv, 'r') as read_obj:
+                csv_dict_reader = DictReader(read_obj)
+                for row in csv_dict_reader:
+                    self.checkRowData(cursor=cursor, row=row)
+        except FileNotFoundError as err:
+            self.log.error(f'[DUMP IMPORT] readCSVfile => {err}')
 
     def insertData(self):
         """Метод для вставки данных в Postgre"""
