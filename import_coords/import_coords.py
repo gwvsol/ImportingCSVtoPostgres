@@ -37,6 +37,19 @@ class PostgreDB(object):
         self._idregion = os.environ.get('POSTGRES_IDREGION')
         self._dbconf = dict()
         self._csv = os.environ.get('POSTGRES_DUMP_CSV')
+        # ===================================================
+        self.time_str = os.environ.get('TIME_STR')
+        self.car_number = os.environ.get('CAR_NUMBER')
+        self.longitude = os.environ.get('LONGITUDE')
+        self.latitude = os.environ.get('LATITUDE')
+        self.speed = os.environ.get('SPEED')
+        self.direction = os.environ.get('DIRECTION')
+        self.valid = os.environ.get('VALID')
+        self.moving = os.environ.get('MOVING')
+        self.actual = os.environ.get('ACTUAL')
+        self.odometer = os.environ.get('ODOMETER')
+        self.alarmbutton = os.environ.get('ALARMBUTTON')
+        self.id_car = os.environ.get('ID_CAR')
         if self._host and self._port and \
            self._user and self._password and self._dbname:
             self._dbconf = {"user":     self._user,
@@ -53,7 +66,7 @@ class PostgreDB(object):
     def convertDataForPostgre(self, data: dict) -> list:
         """Метод для преобразования данных для отправки в Postgre"""
         time = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-        time_str = f'{data.pop("_period")}{self._timezone}'
+        time_str = f'{data.pop(self.time_str)}{self._timezone}'
         time_unix = datetime.strptime(
             time_str, f"%Y-%m-%d %H:%M:%S{self._timezone}").timestamp()
         if self._timezone.isalpha():
@@ -64,33 +77,33 @@ class PostgreDB(object):
         time_unix = round(time_unix)
         time_str = datetime.fromtimestamp(time_unix).\
             strftime("%Y-%m-%d %H:%M:%SZ")
-        car_numder = data.pop('_fld325')
-        longitude = data.pop('_fld326')
-        latitude = data.pop('_fld327')
-        speed = round(float(data.pop('_fld328')))
-        direction = data.pop('_fld329')
-        if data.pop('_fld330') == 't':
+        car_number = data.pop(self.car_number)
+        longitude = data.pop(self.longitude)
+        latitude = data.pop(self.latitude)
+        speed = round(float(data.pop(self.speed)))
+        direction = data.pop(self.direction)
+        if data.pop(self.valid) == 't':
             valid = True
         else:
             valid = False
-        if data.pop('_fld331') == 't':
+        if data.pop(self.moving) == 't':
             moving = True
         else:
             moving = False
-        if data.pop('_fld332') == 't':
+        if data.pop(self.actual) == 't':
             actual = True
         else:
             actual = False
-        odometer = data.pop('_fld333')
-        if data.pop('_fld334') == 't':
+        odometer = data.pop(self.odometer)
+        if data.pop(self.alarmbutton) == 't':
             alarmbutton = True
         else:
             alarmbutton = False
-        id_car = data.pop('_fld335')
+        id_car = data.pop(self.id_car)
         altitude = 0
         id_region = self._idregion
         return [time, id_car, latitude, longitude, altitude, direction, speed,
-                odometer, id_region, car_numder, time_str, time_unix, valid,
+                odometer, id_region, car_number, time_str, time_unix, valid,
                 actual, moving, alarmbutton]
 
     def writeToDb(self, cursor, data: list):
